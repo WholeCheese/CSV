@@ -1,0 +1,28 @@
+# rule identifiers to exclude from running
+disabled_rules:
+- opening_brace
+- statement_position
+- comma
+- todo
+- function_body_length
+- type_body_length
+- cyclomatic_complexity
+- file_length
+
+# some rules are only opt-in
+opt_in_rules:
+- empty_count
+- missing_docs
+
+# paths to include during linting. `--path` is ignored if present.
+included:
+- CSV
+- CSVTests
+
+# paths to ignore during linting. Takes precedence over `included`.
+excluded:
+- Carthage
+
+# configurable rules can be customized from this configuration file
+line_length: 200
+
