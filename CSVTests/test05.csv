@@ -1,5 +1,14 @@
-aaa,bbb,ccc
-aaa,  bbb  ,  "ccc"  
-"aaa","bb,b","  ccc  "
-aaa,"b""bb",  "  ccc  "  
-zzz,yyy,xxx
+One,quote"character,Last
+Two,"quote"character",Last
+Three,"quote""character",Last
+Four,"quote""char-
+acter",Last
+
+,,,
+"","",""
+
+aaa,bbb,ccc,ddd
+ eee ," fff ", " ggg " , "hhh" 
+ "iii" ,"jj,j","kk""k",l"l"l
+aaa,bbb,"ccc
+c continued",ddd

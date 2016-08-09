@@ -99,11 +99,8 @@ public class StreamReader
 			let fileURL = NSURL(fileURLWithPath: path)
 
 			self.fileHandle = try NSFileHandle(forReadingFromURL: fileURL)
-
-			//self.fileHandle = NSFileHandle(forReadingAtPath: path)
 			if self.fileHandle != nil
 			{
-
 				//	TODO: examine the first 1024 bytes or so to determine if this is a "text" file.
 			}
 			else
@@ -113,10 +110,10 @@ public class StreamReader
 		}
 		catch let e
 		{
+			//	TODO: make this a bit more robust?
 			let error = e as NSError
 
 			print("localizedDescription: \(error.localizedDescription)")
-			//	localizedDescription: The operation couldn’t be completed. (Cocoa error 2.)
 			if let reason = error.localizedFailureReason
 			{
 				print("\(reason)")

@@ -30,17 +30,17 @@ class CSVTests: XCTestCase, CSVParserDelegate
 {
 	var example2Start: NSDate?
 
-    override func setUp()
+	override func setUp()
 	{
-        super.setUp()
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
+		super.setUp()
+		// Put setup code here. This method is called before the invocation of each test method in the class.
+	}
 
-    override func tearDown()
+	override func tearDown()
 	{
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-        super.tearDown()
-    }
+		// Put teardown code here. This method is called after the invocation of each test method in the class.
+		super.tearDown()
+	}
 
 	func test01()
 	{
@@ -58,7 +58,6 @@ class CSVTests: XCTestCase, CSVParserDelegate
 		csv3.startReader()
 
 		//	Test04 - CRLF file with a quoted field containing a CRLF.
-		//	We do not currently support quoted fields which span lines.
 		let csv4 = CSVParser(path: bundlePath("test04", type: "csv"), delegate: self)
 		csv4.startReader()
 
@@ -72,9 +71,9 @@ class CSVTests: XCTestCase, CSVParserDelegate
 
 		//	Test07 - Cars for sale.
 		let csv7 = CSVParser(path: bundlePath("test07", type: "csv"), delegate: self)
-		csv7.startReader()
+		csv7.startReader(",")
 
-		//	Test08 - Same cars for sale with a TAB separator.
+		//	Test08 - Same cars for sale but with a TAB separator and using CRLF line termination.
 		let csv8 = CSVParser(path: bundlePath("test08", type: "csv"), delegate: self)
 		csv8.startReader("\t")
 	}
@@ -111,11 +110,13 @@ class CSVTests: XCTestCase, CSVParserDelegate
 	///   - line: an array of strings, one element for each delimited field in the line
 	func parserDidReadLine(parser: CSVParser, line: [String])
 	{
-		print("line: \(parser.lineCount) : \(line)")
+		print("\nline: \(parser.lineCount), \(line.count) fields: \(line)")
 		for field in line
 		{
 			print("|\(field)|")
 		}
+
+		//	TODO: we need to test the expected values here.
 	}
 
 	/// sent when the parser has completed parsing. If this is encountered, the parse was successful.
@@ -123,7 +124,7 @@ class CSVTests: XCTestCase, CSVParserDelegate
 	///   - parser: the CSVParser object
 	func parserDidEndDocument(parser: CSVParser)
 	{
-		print("Did end document: \(parser.lineCount) lines read.")
+		print("\nDid end document: \(parser.lineCount) lines read.")
 		print("Finish time: \(NSDate().timeIntervalSinceDate(example2Start!))")
 		print("\n")
 	}

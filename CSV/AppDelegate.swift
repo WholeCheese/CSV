@@ -26,18 +26,61 @@
 import Cocoa
 
 @NSApplicationMain
-class AppDelegate: NSObject, NSApplicationDelegate
+class AppDelegate: NSObject, NSApplicationDelegate, CSVParserDelegate
 {
-	var example2Start: NSDate?
-	var stackIDs = [UInt64: String]()
+	var exampleStart: NSDate?
 
 	func applicationDidFinishLaunching(aNotification: NSNotification)
 	{
 		// Insert code here to initialize your application
+
+//		doStuff()	//	Use this to time really big files.
 	}
 
 	func applicationWillTerminate(aNotification: NSNotification)
 	{
 		// Insert code here to tear down your application
+	}
+
+	func doStuff()
+	{
+		exampleStart = NSDate()
+
+		let pathName = "/path/to/a/really/big/file.csv"
+		let csv = CSVParser(path: pathName, delegate: self)
+		let workQueue = dispatch_queue_create("doStuff!", DISPATCH_QUEUE_SERIAL)
+		dispatch_async(workQueue)
+		{
+			csv.startReader()
+		}
+	}
+
+	func parserDidStartDocument(parser: CSVParser)
+	{
+		var name = ""
+		let pathComponents = parser.csvFile.path.componentsSeparatedByString("/")
+
+		if let n = pathComponents.last
+		{
+			name = n
+		}
+		NSLog("\n")
+		NSLog("Did start document: \(name)")
+	}
+
+	func parserDidReadLine(parser: CSVParser, line: [String])
+	{
+//		print("\nline: \(parser.lineCount), \(line.count) fields: \(line)")
+//		for field in line
+//		{
+//			print("|\(field)|")
+//		}
+	}
+
+	func parserDidEndDocument(parser: CSVParser)
+	{
+		NSLog("\nDid end document: \(parser.lineCount) lines read.")
+		NSLog("Finish time: \(NSDate().timeIntervalSinceDate(exampleStart!))")
+		NSLog("\n")
 	}
 }

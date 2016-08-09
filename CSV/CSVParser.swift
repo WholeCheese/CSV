@@ -6,6 +6,8 @@
 //  Copyright © 2016 Allan Hoeltje.
 //
 //	The algorithm employed here in the parse method was gleaned from libcsv by Robert Gamble.
+//	Modifications were made to be lenient with quote characters appearing inside of non-quoted
+//	fields.
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a copy of
 //	this software and associated documentation files (the "Software"), to deal in
@@ -41,23 +43,22 @@ public class CSVParser: NSObject
 
 	enum ParserState
 	{
-		case ROW_NOT_BEGUN				//	There have not been any fields encountered for this row
-		case FIELD_NOT_BEGUN			//	There have been fields but we are currently not in one
+		case FIELD_NOT_BEGUN			//	We are currently between fields or at the beginning of the row
 		case FIELD_BEGUN				//	We are in a field
 		case FIELD_MIGHT_HAVE_ENDED		//	We encountered a double quote inside a quoted field
+		case LINE_COMPLETED				//	The line is completely parsed and ready to send to the delegate
+		case FIELD_CONTINUES_NEXT_LINE	//	A quoted field contains a new line character.
 	}
 
-	private var pstate		= ParserState.FIELD_NOT_BEGUN
+	private var parserState	= ParserState.FIELD_NOT_BEGUN
+	private var parsedLine	= [String]()
+	private var parsedField: String = ""
+
 	private var quoted		= false
 	private var spaces		= 0
-	private var entryPos	= 0
 
 	private let csvTab: UInt32		= 0x09
 	private let csvSpace: UInt32	= 0x20
-	private let csvCR: UInt32		= 0x0d
-	private let csvLF: UInt32		= 0x0a
-	private let csvComma: UInt32	= 0x2c
-	private let csvQuote: UInt32	= 0x22
 
 
 	/// Initialize the CSV object with a file path.
@@ -99,10 +100,22 @@ public class CSVParser: NSObject
 				var line = csvStreamReader.nextLine()
 				while line != nil
 				{
-					let parsedLine = parse(line!)
 					lineCount += 1
 
-					d.parserDidReadLine(self, line: parsedLine)
+					parserState = parse(line!)
+					if parserState == .LINE_COMPLETED
+					{
+						d.parserDidReadLine(self, line: parsedLine)
+
+						parsedLine.removeAll(keepCapacity: true)
+						parserState = .FIELD_NOT_BEGUN
+					}
+					else
+					if parserState != .FIELD_CONTINUES_NEXT_LINE
+					{
+						print("ERROR: \(parserState)")	//	TODO: can this ever happen?
+						break
+					}
 
 					line = csvStreamReader.nextLine()
 				}
@@ -135,54 +148,83 @@ public class CSVParser: NSObject
 		return components
 	}
 
-	private func parse(line: String) -> [String]
+
+	private func parse(line: String) -> ParserState
 	{
 //		print( "\n\(line)")
 
-		var components = [String]()
-		var field = ""
+		spaces = 0
 
-		entryPos	= 0
-		quoted		= false
-		spaces		= 0
-		pstate		= .ROW_NOT_BEGUN
+		if parserState == .FIELD_CONTINUES_NEXT_LINE
+		{
+			parsedField.append("\n".unicodeScalars.first!)
+			parserState = .FIELD_BEGUN
+		}
 
 		for ch in line.unicodeScalars
 		{
 			let c = ch.value
-			switch pstate
+
+			//	The spec says this about spaces:
+			//		Spaces are considered part of a field and should not be ignored.
+			//
+			//	But it does not say anything about leading or trailing spaces outside of a quoted field,
+			//	for example, for visualization "-" is the space character:
+			//
+			//		<BOL>---"---first field---"---|---second field---|"---third field---"|---"fourth field"---<EOL>
+			//
+			//	The parsed fields should be:
+			//		|---first field---|
+			//		|---second field---|
+			//		|---third field---|
+			//		|fourth field|
+			//
+			//	To deal with this we will need to count leading and trailing spaces separately and remove them later
+			//	if they are outside of the first/last quote.
+
+			switch parserState
 			{
-			case .ROW_NOT_BEGUN:
-				fallthrough
 			case .FIELD_NOT_BEGUN:
-				if ((c == csvSpace) || (c == csvTab)) && (c != delim)
+				if (c == csvTab) && (c != delim)
 				{
-					//	space or tab
-					//	continue
+					//	ignore tab? or handle like space?
+					continue
+				}
+				else
+				if (c == csvSpace) && (c != delim)
+				{
+					//	we don't count the field as "begun" until the first non-space char.
+					parsedField.append(ch)
+					spaces += 1
 				}
 				else
 				if c == delim
 				{
-					components.append(field)	//	SUBMIT_FIELD
-					field = ""
+					//	if the first thing we see is a delim then it is an empty field
+					parsedLine.append(parsedField)	//	SUBMIT_FIELD
+					parsedField.removeAll(keepCapacity: true)
 
-					entryPos	= 0
-					quoted		= false
-					spaces		= 0
-					pstate		= .FIELD_NOT_BEGUN
+					quoted = false
+					spaces = 0
 				}
 				else
 				if c == quote
 				{
+					//	The field is considered quoted if the first non-white-space character is a quote.
+					//	Remove the leading spaces.
+					parsedField.removeAll(keepCapacity: true)
+
 					quoted = true
-					pstate = .FIELD_BEGUN
+					spaces = 0
+					parserState = .FIELD_BEGUN
 				}
 				else
 				{
-					field.append(ch)			//	SUBMIT_CHAR
-					entryPos += 1
+					//	Our first non-space char - we have begun the field
+					parsedField.append(ch)			//	SUBMIT_CHAR
 					quoted = false
-					pstate = .FIELD_BEGUN
+					spaces = 0
+					parserState = .FIELD_BEGUN
 				}
 
 			case .FIELD_BEGUN:
@@ -190,22 +232,14 @@ public class CSVParser: NSObject
 				{
 					if quoted
 					{
-						field.append(ch)		//	SUBMIT_CHAR
-						entryPos += 1
-						pstate = .FIELD_MIGHT_HAVE_ENDED
+						parsedField.append(ch)		//	SUBMIT_CHAR
+						parserState = .FIELD_MIGHT_HAVE_ENDED
 					}
 					else
 					{
 						//	double quote inside non-quoted field
-//						if (p->options & CSV_STRICT)
-//						{
-//							p->status = CSV_EPARSE;
-//							p->quoted = quoted, p->pstate = pstate, p->spaces = spaces, p->entry_pos = entry_pos;
-//							return pos-1;
-//						}
-
-						field.append(ch)		//	SUBMIT_CHAR
-						entryPos += 1
+						parsedField.append(ch)		//	SUBMIT_CHAR
+						parserState = .FIELD_MIGHT_HAVE_ENDED
 						spaces = 0
 					}
 				}
@@ -215,18 +249,16 @@ public class CSVParser: NSObject
 					//	Delimiter
 					if quoted
 					{
-						field.append(ch)		//	SUBMIT_CHAR
-						entryPos += 1
+						parsedField.append(ch)		//	SUBMIT_CHAR
 					}
 					else
 					{
-						components.append(field)	//	SUBMIT_FIELD
-						field = ""
+						parsedLine.append(parsedField)	//	SUBMIT_FIELD
+						parsedField.removeAll(keepCapacity: true)
 
-						entryPos	= 0
 						quoted		= false
 						spaces		= 0
-						pstate		= .FIELD_NOT_BEGUN
+						parserState	= .FIELD_NOT_BEGUN
 					}
 				}
 				else
@@ -234,94 +266,100 @@ public class CSVParser: NSObject
 				{
 					//	Tab or space for non-quoted field
 
-					field.append(ch)			//	SUBMIT_CHAR
-					entryPos += 1
+					parsedField.append(ch)			//	SUBMIT_CHAR
 					spaces += 1
 				}
 				else
 				{
-					field.append(ch)			//	SUBMIT_CHAR
-					entryPos += 1
+					parsedField.append(ch)			//	SUBMIT_CHAR
 					spaces = 0
 				}
 
 			case .FIELD_MIGHT_HAVE_ENDED:
-				//	This only happens when a quote character is encountered in a quoted field
+				//	This only happens when the previous character was a quote character and we are in a quoted field.
 				if c == delim
 				{
-					let range = field.endIndex.advancedBy(-(spaces + 1)) ..< field.endIndex
-					field.removeRange(range)
+					let range = parsedField.endIndex.advancedBy(-(spaces + 1)) ..< parsedField.endIndex
+					parsedField.removeRange(range)
 
-					entryPos -= (spaces + 1)	//	get rid of spaces and original quote
-					components.append(field)	//	SUBMIT_FIELD
-					field = ""
+					parsedLine.append(parsedField)	//	SUBMIT_FIELD
+					parsedField.removeAll(keepCapacity: true)
 
-					entryPos	= 0
 					quoted		= false
 					spaces		= 0
-					pstate		= .FIELD_NOT_BEGUN
+					parserState	= .FIELD_NOT_BEGUN
 				}
 				else
 				if (c == csvSpace) || (c == csvTab)
 				{
-					field.append(ch)			//	SUBMIT_CHAR
-					entryPos += 1
+					parsedField.append(ch)			//	SUBMIT_CHAR
 					spaces += 1
 				}
 				else
 				if c == quote
 				{
-					if spaces > 0
-					{
-						//	STRICT ERROR - unescaped double quote
-//						if (p->options & CSV_STRICT)
-//						{
-//							p->status = CSV_EPARSE;
-//							p->quoted = quoted;
-//							p->pstate = pstate;
-//							p->spaces = spaces;
-//							p->entry_pos = entry_pos;
-//							return pos-1;
-//						}
-
-						field.append(ch)		//	SUBMIT_CHAR
-						entryPos += 1
-						spaces = 0
-					}
-					else
-					{
-						//	Two quotes in a row
-						pstate = .FIELD_BEGUN
-					}
+					//	Two quotes in a row
+					parserState = .FIELD_BEGUN
 				}
 				else
 				{
 					//	Anything else
-					field.append(ch)			//	SUBMIT_CHAR
-					entryPos += 1
+					parsedField.append(ch)			//	SUBMIT_CHAR
+					quoted = false
 					spaces = 0
-					pstate = .FIELD_BEGUN
+					parserState = .FIELD_BEGUN
 				}
+
+			default:
+				print("PARSER STATE: \(parserState)")	//	TODO: can this ever happen?
 			}
 		}
 
-		if pstate == .FIELD_BEGUN
+		if parserState == .FIELD_BEGUN
 		{
-			//	We still have an unfinished field
-			components.append(field)
+			if quoted
+			{
+				parserState = .FIELD_CONTINUES_NEXT_LINE
+			}
+			else
+			{
+				parsedLine.append(parsedField)
+				parsedField.removeAll(keepCapacity: true)
+
+				parserState = .LINE_COMPLETED
+				quoted = false
+				spaces = 0
+			}
 		}
 		else
-		if pstate == .FIELD_MIGHT_HAVE_ENDED
+		if parserState == .FIELD_MIGHT_HAVE_ENDED
 		{
-			if !field.isEmpty
+			if !parsedField.isEmpty
 			{
-				let range = field.endIndex.advancedBy(-(spaces + 1)) ..< field.endIndex
-				field.removeRange(range)
-				components.append(field)
+				let range = parsedField.endIndex.advancedBy(-(spaces + 1)) ..< parsedField.endIndex
+				parsedField.removeRange(range)
+				parsedLine.append(parsedField)
+				parsedField.removeAll(keepCapacity: true)
+
+				parserState = .LINE_COMPLETED
+				quoted = false
+				spaces = 0
 			}
 		}
+		else
+		if parserState == .FIELD_NOT_BEGUN
+		{
+			//	We have an empty line or a line of emptyfields.
+			parserState = .LINE_COMPLETED
+			quoted = false
+			spaces = 0
+		}
+		else
+		{
+			print("PARSER STATE: \(parserState)")	//	TODO: can this ever happen?
+		}
 
-		return components
+		return parserState
 	}
 }
 
