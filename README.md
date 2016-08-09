@@ -9,6 +9,7 @@ Modifications were made to be lenient with quote characters appearing inside of 
 Updated on August 9, 2016
 1) Added support for quoted fields containing new-line characters.
 2) Made the parser more lenient towards quote characters within non-quoted fields.
+3) General code cleanup.
 
 TODO:
 1) Add a CSV writer
