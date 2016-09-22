@@ -28,37 +28,37 @@ import Cocoa
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate, CSVParserDelegate
 {
-	var exampleStart: NSDate?
+	var exampleStart: Date?
 
-	func applicationDidFinishLaunching(aNotification: NSNotification)
+	func applicationDidFinishLaunching(_ aNotification: Notification)
 	{
 		// Insert code here to initialize your application
 
 //		doStuff()	//	Use this to time really big files.
 	}
 
-	func applicationWillTerminate(aNotification: NSNotification)
+	func applicationWillTerminate(_ aNotification: Notification)
 	{
 		// Insert code here to tear down your application
 	}
 
 	func doStuff()
 	{
-		exampleStart = NSDate()
+		exampleStart = Date()
 
 		let pathName = "/path/to/a/really/big/file.csv"
 		let csv = CSVParser(path: pathName, delegate: self)
-		let workQueue = dispatch_queue_create("doStuff!", DISPATCH_QUEUE_SERIAL)
-		dispatch_async(workQueue)
+		let workQueue = DispatchQueue(label: "doStuff!", attributes: [])
+		workQueue.async
 		{
 			csv.startReader()
 		}
 	}
 
-	func parserDidStartDocument(parser: CSVParser)
+	func parserDidStartDocument(_ parser: CSVParser)
 	{
 		var name = ""
-		let pathComponents = parser.csvFile.path.componentsSeparatedByString("/")
+		let pathComponents = parser.csvFile.path.components(separatedBy: "/")
 
 		if let n = pathComponents.last
 		{
@@ -68,7 +68,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, CSVParserDelegate
 		NSLog("Did start document: \(name)")
 	}
 
-	func parserDidReadLine(parser: CSVParser, line: [String])
+	func parserDidReadLine(_ parser: CSVParser, line: [String])
 	{
 //		print("\nline: \(parser.lineCount), \(line.count) fields: \(line)")
 //		for field in line
@@ -77,10 +77,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, CSVParserDelegate
 //		}
 	}
 
-	func parserDidEndDocument(parser: CSVParser)
+	func parserDidEndDocument(_ parser: CSVParser)
 	{
 		NSLog("\nDid end document: \(parser.lineCount) lines read.")
-		NSLog("Finish time: \(NSDate().timeIntervalSinceDate(exampleStart!))")
+		NSLog("Finish time: \(Date().timeIntervalSince(exampleStart!))")
 		NSLog("\n")
 	}
 }

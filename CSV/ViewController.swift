@@ -34,7 +34,7 @@ class ViewController: NSViewController
 		// Do any additional setup after loading the view.
 	}
 
-	override var representedObject: AnyObject?
+	override var representedObject: Any?
 	{
 		didSet
 		{
@@ -42,8 +42,8 @@ class ViewController: NSViewController
 		}
 	}
 
-	@IBAction func wholeCheese(sender: AnyObject)
+	@IBAction func wholeCheese(_ sender: AnyObject)
 	{
-		NSWorkspace.sharedWorkspace().openURL(NSURL(string: "http://WholeCheese.com")!)
+		NSWorkspace.shared().open(URL(string: "http://WholeCheese.com")!)
 	}
 }

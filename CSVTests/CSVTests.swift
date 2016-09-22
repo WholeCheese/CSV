@@ -28,7 +28,7 @@ import XCTest
 
 class CSVTests: XCTestCase, CSVParserDelegate
 {
-	var example2Start: NSDate?
+	var example2Start: Date?
 
 	override func setUp()
 	{
@@ -79,9 +79,9 @@ class CSVTests: XCTestCase, CSVParserDelegate
 	}
 
 
-	func bundlePath(fileName: String, type: String) -> String
+	func bundlePath(_ fileName: String, type: String) -> String
 	{
-		return NSBundle(forClass: self.dynamicType).pathForResource(fileName, ofType: type)!
+		return Bundle(for: type(of: self)).path(forResource: fileName, ofType: type)!
 	}
 
 
@@ -90,10 +90,10 @@ class CSVTests: XCTestCase, CSVParserDelegate
 	/// sent when the parser begins parsing the document.
 	/// - Parameters:
 	///   - parser: the CSVParser object
-	func parserDidStartDocument(parser: CSVParser)
+	func parserDidStartDocument(_ parser: CSVParser)
 	{
 		var name = ""
-		let pathComponents = parser.csvFile.path.componentsSeparatedByString("/")
+		let pathComponents = parser.csvFile.path.components(separatedBy: "/")
 
 		if let n = pathComponents.last
 		{
@@ -101,14 +101,14 @@ class CSVTests: XCTestCase, CSVParserDelegate
 		}
 		print("\n")
 		print("Did start document: \(name)")
-		example2Start = NSDate()
+		example2Start = Date()
 	}
 
 	/// sent to the delegate for each line in the CSV document
 	/// - Parameters:
 	///   - parser: the CSVParser object
 	///   - line: an array of strings, one element for each delimited field in the line
-	func parserDidReadLine(parser: CSVParser, line: [String])
+	func parserDidReadLine(_ parser: CSVParser, line: [String])
 	{
 		print("\nline: \(parser.lineCount), \(line.count) fields: \(line)")
 		for field in line
@@ -122,10 +122,10 @@ class CSVTests: XCTestCase, CSVParserDelegate
 	/// sent when the parser has completed parsing. If this is encountered, the parse was successful.
 	/// - Parameters:
 	///   - parser: the CSVParser object
-	func parserDidEndDocument(parser: CSVParser)
+	func parserDidEndDocument(_ parser: CSVParser)
 	{
 		print("\nDid end document: \(parser.lineCount) lines read.")
-		print("Finish time: \(NSDate().timeIntervalSinceDate(example2Start!))")
+		print("Finish time: \(Date().timeIntervalSince(example2Start!))")
 		print("\n")
 	}
 }
