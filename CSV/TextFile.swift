@@ -164,41 +164,37 @@ open class StreamReader
 						}
 					}
 
-					buffer.withUnsafeBytes
+					let chars = (buffer as NSData).bytes.bindMemory(to: UInt8.self, capacity: buffer.count)
+					while beginByte < buffer.count
 					{
-						(uPtr: UnsafePointer<UInt8>) in
-						var ptr = uPtr
-						for _ in 0..<buffer.count
-						{
-							let byte = ptr.pointee
+						let byte: UInt8 = chars[beginByte]
 
-							if byte == crDelim
+						beginByte += 1
+
+						if byte == crDelim
+						{
+							crWasSeen = true
+							atEOL = true
+							break
+						}
+						else
+						if byte == lfDelim
+						{
+							if crWasSeen
 							{
-								crWasSeen = true
+								//	for CRLF we treat the CR as the new line and skip over the LF
+								crWasSeen = false
+							}
+							else
+							{
 								atEOL = true
 								break
 							}
-							else
-							if byte == lfDelim
-							{
-								if crWasSeen
-								{
-									//	for CRLF we treat the CR as the new line and skip over the LF
-									crWasSeen = false
-								}
-								else
-								{
-									atEOL = true
-									break
-								}
-							}
-							else
-							{
-								crWasSeen = false
-								self.lineData.append(byte)
-							}
-
-							ptr = ptr.advanced(by: 1)
+						}
+						else
+						{
+							crWasSeen = false
+							self.lineData.append(byte)
 						}
 					}
 				}
