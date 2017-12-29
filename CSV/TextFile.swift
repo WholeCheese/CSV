@@ -140,7 +140,6 @@ open class StreamReader
 
 		if fileHandle != nil
 		{
-			var chars: UnsafePointer<UInt8>
 			var atEOL: Bool = false
 
 			lineData.removeAll(keepingCapacity: true)
@@ -165,38 +164,41 @@ open class StreamReader
 						}
 					}
 
-					chars = (buffer as NSData).bytes.bindMemory(to: UInt8.self, capacity: buffer.count)
-
-					while beginByte < buffer.count
+					buffer.withUnsafeBytes
 					{
-						let byte: UInt8 = chars[beginByte]
-
-						beginByte += 1
-
-						if byte == crDelim
+						(uPtr: UnsafePointer<UInt8>) in
+						var ptr = uPtr
+						for _ in 0..<buffer.count
 						{
-							crWasSeen = true
-							atEOL = true
-							break
-						}
-						else
-						if byte == lfDelim
-						{
-							if crWasSeen
+							let byte = ptr.pointee
+
+							if byte == crDelim
 							{
-								//	for CRLF we treat the CR as the new line and skip over the LF
-								crWasSeen = false
-							}
-							else
-							{
+								crWasSeen = true
 								atEOL = true
 								break
 							}
-						}
-						else
-						{
-							crWasSeen = false
-							self.lineData.append(byte)
+							else
+							if byte == lfDelim
+							{
+								if crWasSeen
+								{
+									//	for CRLF we treat the CR as the new line and skip over the LF
+									crWasSeen = false
+								}
+								else
+								{
+									atEOL = true
+									break
+								}
+							}
+							else
+							{
+								crWasSeen = false
+								self.lineData.append(byte)
+							}
+
+							ptr = ptr.advanced(by: 1)
 						}
 					}
 				}
