@@ -44,6 +44,6 @@ class ViewController: NSViewController
 
 	@IBAction func wholeCheese(_ sender: AnyObject)
 	{
-		NSWorkspace.shared().open(URL(string: "http://WholeCheese.com")!)
+		NSWorkspace.shared.open(URL(string: "http://WholeCheese.com")!)
 	}
 }
