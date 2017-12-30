@@ -25,6 +25,12 @@
 
 import Foundation
 
+//	Two ways to look at the bytes in a file.  One uses the NSData bindMemory function,
+//	the other uses Swift4 Data withUnsafeBytes function.  Both ways are about equal
+//	in terms of speed.  A large 145.1MB, 1,529,352 line TSV file takes 28.608 seconds to parse
+//	using NSData, 28.636 seconds using Data withUnsafeBytes.
+let useNSData = false
+
 /// A class representing a text file.
 open class TextFile
 {
@@ -164,6 +170,7 @@ open class StreamReader
 						}
 					}
 
+#if useNSData
 					let chars = (buffer as NSData).bytes.bindMemory(to: UInt8.self, capacity: buffer.count)
 					while beginByte < buffer.count
 					{
@@ -197,6 +204,48 @@ open class StreamReader
 							self.lineData.append(byte)
 						}
 					}
+#else
+					buffer.withUnsafeBytes
+					{
+						(uPtr: UnsafePointer<UInt8>) in
+						var ptr = uPtr
+
+						ptr = ptr.advanced(by: beginByte)
+						while beginByte < buffer.count
+						{
+							let byte = ptr.pointee
+							beginByte += 1
+
+							if byte == crDelim
+							{
+								crWasSeen = true
+								atEOL = true
+								break
+							}
+							else
+							if byte == lfDelim
+							{
+								if crWasSeen
+								{
+									//	for CRLF we treat the CR as the new line and skip over the LF
+									crWasSeen = false
+								}
+								else
+								{
+									atEOL = true
+									break
+								}
+							}
+							else
+							{
+								crWasSeen = false
+								self.lineData.append(byte)
+							}
+
+							ptr = ptr.advanced(by: 1)
+						}
+					}
+#endif
 				}
 			}
 		}
